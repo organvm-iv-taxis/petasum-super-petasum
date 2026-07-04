@@ -12,7 +12,7 @@ try:
 
     _HAS_ENGINE_GOVERNANCE = True
 except ImportError:
-    _EngineAuditResult = Any  # type: ignore[assignment]
+    class _EngineAuditResult: ...  # type: ignore[no-redef]
     _HAS_ENGINE_GOVERNANCE = False
 
 
