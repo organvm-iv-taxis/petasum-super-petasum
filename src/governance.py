@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
-try:
-    from organvm_engine.governance.audit import run_audit as _engine_run_audit
-    from organvm_engine.governance.rules import (
-        load_governance_rules as _engine_load_governance_rules,
-    )
 
-    _HAS_ENGINE_GOVERNANCE = True
-except ImportError:
+def _load_engine_governance() -> tuple[
+    bool, Callable[[dict[str, Any], Any], Any] | None, Callable[[], Any] | None
+]:
+    try:
+        audit_module = importlib.import_module("organvm_engine.governance.audit")
+        rules_module = importlib.import_module("organvm_engine.governance.rules")
+        return (
+            True,
+            getattr(audit_module, "run_audit", None),
+            getattr(rules_module, "load_governance_rules", None),
+        )
+    except Exception:
+        return False, None, None
+
+
+_HAS_ENGINE_GOVERNANCE, _engine_run_audit, _engine_load_governance_rules = _load_engine_governance()
+if not callable(_engine_run_audit) or not callable(_engine_load_governance_rules):
     _HAS_ENGINE_GOVERNANCE = False
 
 
@@ -93,7 +104,11 @@ class GovernanceReport:
 
 def check_ci_health(repos: list[dict]) -> list[HealthCheck]:
     """Check CI health across repositories."""
-    if _HAS_ENGINE_GOVERNANCE:
+    if (
+        _HAS_ENGINE_GOVERNANCE
+        and _engine_run_audit is not None
+        and _engine_load_governance_rules is not None
+    ):
         try:
             registry = _build_engine_registry(repos)
             result = _engine_run_audit(registry, _engine_load_governance_rules())
@@ -146,7 +161,11 @@ def check_ci_health(repos: list[dict]) -> list[HealthCheck]:
 
 def check_documentation_coverage(repos: list[dict]) -> list[HealthCheck]:
     """Check documentation coverage across repositories."""
-    if _HAS_ENGINE_GOVERNANCE:
+    if (
+        _HAS_ENGINE_GOVERNANCE
+        and _engine_run_audit is not None
+        and _engine_load_governance_rules is not None
+    ):
         try:
             registry = _build_engine_registry(repos)
             result = _engine_run_audit(registry, _engine_load_governance_rules())
